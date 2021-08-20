@@ -1,0 +1,92 @@
+version: '3'
+
+networks:
+    
+    mini-posts-network:
+
+services:
+    #    jenkins-mp-service:
+    #        build:
+    #            context: .
+    #            dockerfile: ./jenkins/Dockerfile
+    #        container_name: jenkins-mp-container
+    #        #        ports:
+    #        #            - "8080:8080"
+    #        #            - "50000:50000"
+    #        volumes:
+    #            - ./jenkins/jenkins_home:/var/jenkins_home
+    #        networks:
+    #            - mini-posts-network
+    
+    # mailchatcher
+    mailer-mp-service:
+        image: schickling/mailcatcher
+        container_name: mailer-mp-container
+        ports: [ 1025, 1080 ]
+        networks:
+            - mini-posts-network
+    
+    # nginx
+    nginx-mp-service:
+        image: nginx:stable-alpine
+        container_name: nginx-mp-container
+        ports:
+            - "80:80"
+        volumes:
+            - ./app:/var/www/project
+            - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+        depends_on:
+            - php-mp-service
+            - mariadb-mp-service
+        networks:
+            - mini-posts-network
+    
+    # php
+    php-mp-service:
+        build:
+            context: .
+            dockerfile: ./php/Dockerfile
+        container_name: php-mp-container
+        volumes:
+            - ./app:/var/www/project
+            - ./cache/symfony:/var/www/project/var/cache
+            - ./db-data/test-sql3:/var/www/project/var/db
+            - ./logs/symfony:/var/www/project/var/log
+        networks:
+            - mini-posts-network
+    
+    # mariadb
+    mariadb-mp-service:
+        image: mariadb:10.5.9
+        container_name: mariadb-mp-container
+        ports:
+            - "3306:3306"
+        volumes:
+            - ./db-data/mariadb:/var/lib/mysql
+        #            - ./mariadb/conf.d:/etc/mysql/conf.d
+        networks:
+            - mini-posts-network
+        restart: on-failure
+        environment:
+            MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+            MYSQL_USER: ${MYSQL_USER}
+            MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    
+    # node
+    node-mp-service:
+        build:
+            context: .
+            dockerfile: ./node/Dockerfile
+        container_name: node-mp-container
+        volumes:
+            - ./app:/var/www/project
+        networks:
+            - mini-posts-network
+    
+    # redis
+    redis-mp-service:
+        image: redis:6.2.2
+        container_name: redis-mp-container
+        restart: on-failure
+        networks:
+            - mini-posts-network
